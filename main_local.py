@@ -1,3 +1,18 @@
+# =============================================================================
+# Step 1: 匯入必要模組與自訂函式
+# =============================================================================
+# 匯入標準函式庫，如 OpenCV 用於影像處理、argparse 用於解析命令列參數、
+# numpy 用於數值運算、time 用於時間控制、copy 用於物件複製、
+# PIL (Pillow) 用於處理中文字體、collections.Counter 用於計數。
+# 同時，從專案的 utils 目錄下匯入自訂的核心功能，包括：
+# - add_common_arguments: 添加通用的命令列參數。
+# - initialize_camera: 初始化攝影機。
+# - initialize_arm_controller: 初始化機械手臂控制器。
+# - process_frame_and_control_arm: 處理單一畫格並控制手臂。
+# - cleanup_resources: 程式結束時釋放資源。
+# - StateManager: 狀態管理器。
+# - vision_config: 視覺處理相關的設定檔。
+# - draw_chinese_text: 在影像上繪製中文文字的輔助函式。
 import cv2
 import argparse
 import numpy as np
@@ -17,7 +32,21 @@ from utils.app_core import (
 from utils.vision_processing import config as vision_config
 from utils.vision_processing.ui_basic import draw_chinese_text
 
-# --- 全域變數 ---
+# =============================================================================
+# Step 2: 定義全域變數與 UI 參數
+# =============================================================================
+# 定義整個應用程式會共用的全域變數。
+# - CANVAS_H, CANVAS_W: 主 UI 畫布的高度與寬度。
+# - current_color_to_adjust: 當前正在透過 UI 調整的顏色名稱 (例如 "Red")。
+# - current_action_from_buttons: 儲存最近一次按鈕點擊的動作。
+# - live_color_ranges: 儲存即時的 HSV 顏色範圍，可在 UI 中動態調整。
+# - hsv_values: 當前正在調整的顏色的 HSV 上下限值。
+# - dragging: 用於標記滑鼠是否正在拖曳 HSV 滑塊。
+# - ui_enabled: 控制是否顯示互動式 UI。
+# - hovered_button_idx: 記錄滑鼠目前懸停在哪個按鈕上，以實現 hover 效果。
+# - save_feedback_end_time: 控制 "儲存成功" 訊息的顯示時間。
+#
+# 同時定義 UI 介面的外觀參數，如按鈕的尺寸、顏色、文字，以及 HSV 滑動條的位置和大小。
 CANVAS_H = 900
 CANVAS_W = 1280
 current_color_to_adjust = "Red"
@@ -52,6 +81,14 @@ HSV_BAR_W = 250
 HSV_BAR_H = 20
 HSV_BAR_GAP = 50
 
+# =============================================================================
+# Step 3: HSV 調整面板繪製 (此函式目前未被使用，由 draw_combined_ui 取代)
+# =============================================================================
+# `draw_hsv_panel` 函式用於建立一個獨立的 HSV 調整面板。
+# 它會在一個小的 numpy 畫布上顯示當前正在調整的顏色名稱 (H, S, V) 的
+# 最小值 (min) 和最大值 (max)。
+# 注意：在目前的版本中，這個獨立的面板功能已經被整合到 `draw_combined_ui`
+# 的滑動條介面中，因此這個函式實際上沒有被呼叫。
 def draw_hsv_panel(hsv_values, current_color):
     panel = np.full((180, 320, 3), 80, dtype=np.uint8)
     cv2.putText(panel, f"HSV Adjust ({current_color})", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0,255,0), 2)
@@ -62,6 +99,16 @@ def draw_hsv_panel(hsv_values, current_color):
         cv2.putText(panel, f"{l}_max: {hsv_values[1][i]:3d}", (160, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 1)
     return panel
 
+# =============================================================================
+# Step 4: 按鈕面板繪製
+# =============================================================================
+# `draw_buttons_panel_img` 函式負責繪製右側的控制面板。
+# 這個面板包含了所有可操作的按鈕，例如 "調整紅色"、"儲存設定"、"自動模式" 等。
+# 功能包括：
+# - 根據 `buttons_config` 動態生成按鈕。
+# - 顯示目前正在調整的目標顏色，或在儲存後顯示 "儲存成功！" 的回饋訊息。
+# - 處理按鈕的 hover 效果，當滑鼠懸停在按鈕上時會改變顏色。
+# - 使用 `draw_chinese_text` 函式來確保按鈕上的中文能夠正確顯示。
 def draw_buttons_panel_img(current_color, panel_w=320, panel_h=None):
     global hovered_button_idx, save_feedback_end_time
     # 英文顏色對應中文
@@ -122,6 +169,17 @@ def draw_buttons_panel_img(current_color, panel_w=320, panel_h=None):
         )
     return panel
 
+# =============================================================================
+# Step 5: 主 UI 組合
+# =============================================================================
+# `draw_combined_ui` 是整個互動介面的核心繪圖函式。
+# 它會建立一個大的白色畫布，並將各個 UI 元件組合在一起，包括：
+# - 左上角：顯示即時的攝影機影像。
+# - 左下角：顯示當前顏色過濾後的二值化遮罩 (mask)。
+# - 右側上方：繪製 HSV 滑動條，用於即時調整 H, S, V 的上下限。
+# - 右側下方：嵌入由 `draw_buttons_panel_img` 產生的控制面板。
+# - 左上角（疊加）：如果處於模擬辨識模式，會顯示辨識物體的計數器。
+# 整個函式使用相對座標來定位各個元件，使得調整整體視窗大小變得更容易。
 def draw_combined_ui(main_img, hsv_values, current_color, mask=None, label_counter=None):
     canvas_h, canvas_w = CANVAS_H, CANVAS_W
     canvas = np.full((canvas_h, canvas_w, 3), 255, dtype=np.uint8)  # 背景白色
@@ -206,6 +264,18 @@ def draw_combined_ui(main_img, hsv_values, current_color, mask=None, label_count
 
     return canvas
 
+# =============================================================================
+# Step 6: 處理滑鼠事件
+# =============================================================================
+# `on_all_in_one_mouse` 是設定給主 OpenCV 視窗的滑鼠回呼函式。
+# 它負責處理所有在 "ARMCtrl-ALL-IN-ONE" 視窗內的滑鼠互動，主要功能有：
+# - 按鈕點擊：當滑鼠左鍵點擊在某個按鈕的範圍內時，更新 `current_action_from_buttons`
+#   全域變數，觸發主迴圈中對應的動作。
+# - 按鈕懸停：當滑鼠移動到按鈕上時，更新 `hovered_button_idx` 以觸發 hover 視覺效果。
+# - HSV 滑塊拖曳：
+#   - LBUTTONDOWN: 偵測滑鼠是否點擊在 HSV 滑塊上，並記錄正在拖曳的目標 (H/S/V 的 min/max)。
+#   - MOUSEMOVE: 如果正在拖曳，根據滑鼠的 X 座標更新對應的 HSV 值。
+#   - LBUTTONUP: 結束拖曳狀態。
 def on_all_in_one_mouse(event, x, y, flags, param):
     global current_action_from_buttons, dragging, hsv_values, hovered_button_idx
     canvas_h, canvas_w = CANVAS_H, CANVAS_W
@@ -274,6 +344,14 @@ def on_all_in_one_mouse(event, x, y, flags, param):
             else:
                 hsv_values[1][idx] = max(value, hsv_values[0][idx]+1)
 
+# =============================================================================
+# Step 7: 進入自動模式前的確認視窗
+# =============================================================================
+# `show_auto_mode_confirm` 函式會在使用者點擊 "自動模式" 按鈕後觸發。
+# 它會彈出一個獨立的確認視窗，顯示目前設定的所有顏色的 HSV 範圍，並提示使用者
+# 進入自動模式後將是無 UI 的持續辨識狀態。
+# 使用者可以點擊 "確認" 進入無 UI 模式，或點擊 "取消" 返回到原本的互動介面。
+# 這個視窗也支援按鈕的 hover 效果和透過 Esc 鍵或關閉按鈕來取消操作。
 def show_auto_mode_confirm(live_color_ranges):
     panel_w, panel_h = 500, 360
     panel = np.full((panel_h, panel_w, 3), 240, dtype=np.uint8)
@@ -346,6 +424,16 @@ def show_auto_mode_confirm(live_color_ranges):
             cv2.destroyWindow("Auto Mode confirm")
             return False
 
+# =============================================================================
+# Step 8: 鏡頭選擇視窗
+# =============================================================================
+# `select_camera_dialog` 函式用於讓使用者在多個可用的攝影機之間進行切換。
+# 它會：
+# 1. 偵測系統上所有可用的攝影機 (索引從 0 到 4)。
+# 2. 彈出一個新視窗，將所有可用的攝影機顯示為按鈕。
+# 3. 提供一個 "返回" 按鈕，讓使用者可以取消選擇。
+# 4. 使用者點擊某個攝影機後，函式會返回該攝影機的索引值。
+# 主程式在接收到新的索引值後，會重新初始化攝影機。
 def select_camera_dialog():
     available = []
     for idx in range(5):
@@ -420,6 +508,19 @@ MODE_SIM = "sim"
 current_mode = MODE_AUTO  # 預設自動辨識
 sim_ready_pin = 0         # 模擬模式下的 ready_pin 狀態
 
+# =============================================================================
+# Step 9: 主流程 main() - 初始化
+# =============================================================================
+# `main` 函式是整個程式的進入點和核心邏輯所在。
+# 在這個初始階段，它會執行以下操作：
+# 1. 宣告會用到的全域變數。
+# 2. 使用 `argparse` 解析從命令列傳入的參數 (例如攝影機索引)。
+# 3. 呼叫 `initialize_camera` 和 `initialize_arm_controller` 來設定硬體。
+# 4. 建立 `StateManager` 物件來管理狀態。
+# 5. 從設定檔 `vision_config` 載入預設的顏色範圍，並設定 UI 的初始狀態。
+# 6. 建立名為 "ARMCtrl-ALL-IN-ONE" 的主視窗，並將 `on_all_in_one_mouse`
+#    設定為其滑鼠事件的回呼函式。
+# 7. 初始化計數器 `label_counter` 和其他流程控制變數。
 def main():
     global current_color_to_adjust, current_action_from_buttons, live_color_ranges, hsv_values, ui_enabled, save_feedback_end_time, current_mode, sim_ready_pin
     parser = argparse.ArgumentParser(description="ARMCtrl OpenCV Application - Local Display Mode with HSV Adjustment")
@@ -447,6 +548,16 @@ def main():
 
     running = True
     try:
+        # =============================================================================
+# Step 10: 主迴圈
+# =============================================================================
+# 程式進入一個 `while running` 的主迴圈，持續處理影像和使用者輸入，直到
+# 使用者選擇退出。
+# 迴圈的一開始會檢查 `ui_enabled` 變數。
+# - 如果 `ui_enabled` 為 `False`，程式會進入無頭 (headless) 的自動辨識模式，
+#   這個模式下不會顯示任何 UI 視窗，只會在終端機輸出辨識結果和狀態，
+#   並直接與機械手臂互動。
+# - 如果 `ui_enabled` 為 `True`，程式會繼續執行 UI 互動模式的流程。
         while running:
             # 新增：主視窗被關閉時直接結束
             # if cv2.getWindowProperty("ARMCtrl-ALL-IN-ONE", cv2.WND_PROP_VISIBLE) < 1:
@@ -508,6 +619,19 @@ def main():
                 break
 
             # --- 立即處理按鈕動作 ---
+            # =============================================================================
+# Step 11: 按鈕動作處理
+# =============================================================================
+# 在 UI 模式下，迴圈會檢查 `current_action_from_buttons` 變數是否有值。
+# 這個變數由滑鼠回呼函式 `on_all_in_one_mouse` 在偵測到按鈕點擊時設定。
+# 根據變數的值，程式會執行相應的動作：
+# - "save": 將 `live_color_ranges` 中所有顏色的 HSV 值儲存到設定檔。
+# - "set_red", "set_blue", "set_green": 切換 `current_color_to_adjust`，
+#   讓 UI 顯示並調整對應顏色的 HSV 值。
+# - "quit": 中斷主迴圈，結束程式。
+# - "auto_mode": 呼叫 `show_auto_mode_confirm` 視窗，確認後進入無 UI 模式。
+# - "select_camera": 呼叫 `select_camera_dialog` 視窗，並在選擇後重新初始化攝影機。
+# 處理完畢後，會將 `current_action_from_buttons` 設回 `None`，等待下一次點擊。
             if current_action_from_buttons == "save":
                 vision_config.save_color_ranges(live_color_ranges)
                 print("[MainLocal] Saved current HSV values for ALL colors to config.")
@@ -574,6 +698,26 @@ def main():
                 break
 
             # --- 狀態機流程 ---
+            # =============================================================================
+# Step 12: 狀態機流程 (模式切換與辨識邏輯)
+# =============================================================================
+# 這部分是程式的核心辨識邏輯，根據 `current_mode` (自動/模擬) 執行不同流程。
+#
+# **自動模式 (MODE_AUTO):**
+# - 此模式下，程式會對每一幀影像進行即時辨識。
+# - 呼叫 `process_frame_and_control_arm` 處理影像、辨識顏色、並可能觸發手臂動作。
+# - 將結果（原始影像、遮罩）傳給 `draw_combined_ui` 來繪製並更新 UI。
+# - 這個模式主要用於即時預覽和調整 HSV，不進行計數和延遲判斷。
+#
+# **模擬模式 (MODE_SIM):**
+# - 此模式模擬一個更真實的工業應用場景，包含「待機」和「辨識」兩個階段。
+# - 透過 `ready_pin_state` (可以是真實 GPIO 或鍵盤模擬 'd') 觸發。
+# - **待機階段**: UI 顯示「待機中」，等待 `ready_pin` 訊號變為 1。
+# - **辨識階段**:
+#   - `ready_pin` 變為 1 後，開始一個持續 `window_duration` (例如 3 秒) 的辨識窗口。
+#   - 在此期間，使用 `label_counter` 統計每一幀辨識到的最主要物體。
+#   - 3 秒結束後，找出計數最多的物體 (`most_common_label`)，並觸發對應的手臂動作。
+#   - 完成後，重置狀態，返回待機階段。
             if current_mode == MODE_AUTO:
                 # 自動辨識模式：每幀即時辨識，不做計數与統計
                 live_color_ranges[current_color_to_adjust] = deepcopy(hsv_values)
@@ -709,9 +853,24 @@ def main():
     except KeyboardInterrupt:
         print("\n[MainLocal] Program interrupted by user (Ctrl+C).")
     finally:
+        # =============================================================================
+# Step 13: 程式結束與資源釋放
+# =============================================================================
+# `try...finally` 結構確保不論程式是正常結束還是因錯誤 (如 `KeyboardInterrupt`)
+# 中斷，`finally` 區塊中的程式碼都一定會被執行。
+# 這對於釋放硬體資源至關重要，可以避免攝影機或序列埠被鎖定。
+# - `cleanup_resources`: 呼叫此函式來安全地釋放攝影機 (`cap.release()`) 和
+#   關閉與機械手臂的連線。
+# - `cv2.destroyAllWindows()`: 關閉所有由 OpenCV 建立的視窗。
         print("[MainLocal] Cleaning up resources...")
         cleanup_resources(cap, arm_controller)
         cv2.destroyAllWindows()
 
+# =============================================================================
+# Step 14: 程式進入點
+# =============================================================================
+# `if __name__ == "__main__":` 是 Python 的標準寫法。
+# 它確保只有當這個腳本是作為主程式直接執行時，`main()` 函式才會被呼叫。
+# 如果這個腳本被其他檔案作為模組匯入，`main()` 則不會自動執行。
 if __name__ == "__main__":
     main()
