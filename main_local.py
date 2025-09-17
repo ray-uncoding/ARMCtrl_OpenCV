@@ -708,16 +708,7 @@ def main():
 # - 呼叫 `process_frame_and_control_arm` 處理影像、辨識顏色、並可能觸發手臂動作。
 # - 將結果（原始影像、遮罩）傳給 `draw_combined_ui` 來繪製並更新 UI。
 # - 這個模式主要用於即時預覽和調整 HSV，不進行計數和延遲判斷。
-#
-# **模擬模式 (MODE_SIM):**
-# - 此模式模擬一個更真實的工業應用場景，包含「待機」和「辨識」兩個階段。
-# - 透過 `ready_pin_state` (可以是真實 GPIO 或鍵盤模擬 'd') 觸發。
-# - **待機階段**: UI 顯示「待機中」，等待 `ready_pin` 訊號變為 1。
-# - **辨識階段**:
-#   - `ready_pin` 變為 1 後，開始一個持續 `window_duration` (例如 3 秒) 的辨識窗口。
-#   - 在此期間，使用 `label_counter` 統計每一幀辨識到的最主要物體。
-#   - 3 秒結束後，找出計數最多的物體 (`most_common_label`)，並觸發對應的手臂動作。
-#   - 完成後，重置狀態，返回待機階段。
+
             if current_mode == MODE_AUTO:
                 # 自動辨識模式：每幀即時辨識，不做計數与統計
                 live_color_ranges[current_color_to_adjust] = deepcopy(hsv_values)
