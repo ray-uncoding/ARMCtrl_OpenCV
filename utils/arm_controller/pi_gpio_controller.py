@@ -159,22 +159,22 @@ class PiGPIOController:
 
         threading.Thread(target=sequence).start()
 
-    def trigger_action_A(self): # Corresponds to Arduino 'A' -> 0001
+    def trigger_action_A(self): 
         self._execute_arm_sequence_with_protocol(False, False, True, "Action A (Encoded: 001)")
 
-    def trigger_action_B(self): # Corresponds to Arduino 'B' -> 0010
+    def trigger_action_B(self): 
         self._execute_arm_sequence_with_protocol(False, True, False, "Action B (Encoded: 010)")
 
-    def trigger_action_C(self): # Corresponds to Arduino 'C' -> 0011
+    def trigger_action_C(self): 
         self._execute_arm_sequence_with_protocol(False, True, True, "Action C (Encoded: 011)")
 
-    def trigger_action_D(self): # Corresponds to Arduino 'D' -> 0100
+    def trigger_action_D(self): 
         self._execute_arm_sequence_with_protocol(True, False, False, "Action D (Encoded: 100)")
 
-    def trigger_action_E(self): # Corresponds to Arduino 'E' -> 0101
+    def trigger_action_E(self): 
         self._execute_arm_sequence_with_protocol(True, False, True, "Action E (Encoded: 101)")
         
-    def trigger_action_F(self): # Corresponds to Arduino 'F' -> 0110
+    def trigger_action_F(self):
         self._execute_arm_sequence_with_protocol(True, True, False, "Action F (Encoded: 110)")
         
     def run_test_led_sequence(self):
