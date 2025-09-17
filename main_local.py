@@ -554,7 +554,7 @@ def main():
 # 程式進入一個 `while running` 的主迴圈，持續處理影像和使用者輸入，直到
 # 使用者選擇退出。
 # 迴圈的一開始會檢查 `ui_enabled` 變數。
-# - 如果 `ui_enabled` 為 `False`，程式會進入無頭 (headless) 的自動辨識模式，
+# - 如果 `ui_enabled` 為 `False`，程式會進入無UI (headless) 的自動辨識模式，
 #   這個模式下不會顯示任何 UI 視窗，只會在終端機輸出辨識結果和狀態，
 #   並直接與機械手臂互動。
 # - 如果 `ui_enabled` 為 `True`，程式會繼續執行 UI 互動模式的流程。
@@ -566,7 +566,7 @@ def main():
 
             # 新增：無UI模式直接跳出主循環或執行無UI流程
             if not ui_enabled:
-                # print("[MainLocal] 進入無頭自動辨識模式")
+                # print("[MainLocal] 進入無UI自動辨識模式")
                 in_recognition = False
                 window_start_time = None
                 label_counter.clear()
@@ -655,11 +655,11 @@ def main():
             elif current_action_from_buttons == "auto_mode":
                 # 先跳出確認小視窗
                 if show_auto_mode_confirm(live_color_ranges):
-                    print("[MainLocal] 進入無頭自動辨識模式")
+                    print("[MainLocal] 進入無UI自動辨識模式")
                     ui_enabled = False
                     cv2.destroyAllWindows()
                 else:
-                    print("[MainLocal] 取消進入無頭自動辨識模式")
+                    print("[MainLocal] 取消進入無UI自動辨識模式")
                 current_action_from_buttons = None
             elif current_action_from_buttons == "select_camera":
                 cam_idx = select_camera_dialog()
@@ -825,11 +825,11 @@ def main():
             elif current_action_from_buttons == "auto_mode":
                 # 先跳出確認小視窗
                 if show_auto_mode_confirm(live_color_ranges):
-                    print("[MainLocal] 進入無頭自動辨識模式")
+                    print("[MainLocal] 進入無UI自動辨識模式")
                     ui_enabled = False
                     cv2.destroyAllWindows()
                 else:
-                    print("[MainLocal] 取消進入無頭自動辨識模式")
+                    print("[MainLocal] 取消進入無UI自動辨識模式")
                 current_action_from_buttons = None
             # 新增鏡頭選擇功能
             elif current_action_from_buttons == "select_camera":
@@ -848,7 +848,7 @@ def main():
                     print("[MainLocal] 請重新設定 HSV 範圍.")
                 current_action_from_buttons = None
             if not ui_enabled:
-                # 無頭模式下可加自動退出條件或其他自動流程
+                # 無UI模式下可加自動退出條件或其他自動流程
                 pass
     except KeyboardInterrupt:
         print("\n[MainLocal] Program interrupted by user (Ctrl+C).")
