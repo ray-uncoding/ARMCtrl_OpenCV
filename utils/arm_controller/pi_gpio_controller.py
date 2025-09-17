@@ -159,22 +159,22 @@ class PiGPIOController:
 
         threading.Thread(target=sequence).start()
 
-    def trigger_action_A(self): 
+    def trigger_action_A(self): #紅色三角形
         self._execute_arm_sequence_with_protocol(False, False, True, "Action A (Encoded: 001)")
 
-    def trigger_action_B(self): 
+    def trigger_action_B(self): #紅色方形
         self._execute_arm_sequence_with_protocol(False, True, False, "Action B (Encoded: 010)")
 
-    def trigger_action_C(self): 
+    def trigger_action_C(self): #藍色三角形
         self._execute_arm_sequence_with_protocol(False, True, True, "Action C (Encoded: 011)")
 
-    def trigger_action_D(self): 
+    def trigger_action_D(self): #藍色方形
         self._execute_arm_sequence_with_protocol(True, False, False, "Action D (Encoded: 100)")
 
-    def trigger_action_E(self): 
+    def trigger_action_E(self): #綠色三角形
         self._execute_arm_sequence_with_protocol(True, False, True, "Action E (Encoded: 101)")
-        
-    def trigger_action_F(self):
+
+    def trigger_action_F(self): #綠色方形
         self._execute_arm_sequence_with_protocol(True, True, False, "Action F (Encoded: 110)")
         
     def run_test_led_sequence(self):
