@@ -32,6 +32,21 @@ from utils.app_core import (
 from utils.vision_processing import config as vision_config
 from utils.vision_processing.ui_basic import draw_chinese_text
 
+# === 新增：標準HSV與OpenCV HSV轉換函式 ===
+def std2cv_hsv(std_hsv):
+    # 標準HSV ([[H,S,V],[H,S,V]]) 轉 OpenCV HSV
+    return [
+        [int(std_hsv[0][0]/2), int(std_hsv[0][1]*2.55), int(std_hsv[0][2]*2.55)],
+        [int(std_hsv[1][0]/2), int(std_hsv[1][1]*2.55), int(std_hsv[1][2]*2.55)]
+    ]
+
+def cv2std_hsv(cv_hsv):
+    # OpenCV HSV ([[H,S,V],[H,S,V]]) 轉標準HSV
+    return [
+        [int(round(cv_hsv[0][0]*2)), int(round(cv_hsv[0][1]/2.55)), int(round(cv_hsv[0][2]/2.55))],
+        [int(round(cv_hsv[1][0]*2)), int(round(cv_hsv[1][1]/2.55)), int(round(cv_hsv[1][2]/2.55))]
+    ]
+
 # =============================================================================
 # Step 2: 定義全域變數與 UI 參數
 # =============================================================================
@@ -52,7 +67,8 @@ CANVAS_W = 1280
 current_color_to_adjust = "Red"
 current_action_from_buttons = None
 live_color_ranges = {}
-hsv_values = [[0,0,0],[179,255,255]]
+# === 修改：hsv_values 改為標準HSV範圍 ===
+hsv_values = [[0,0,0],[360,100,100]]
 dragging = None  # (idx, min_or_max) or None
 ui_enabled = True  # 預設開啟UI
 hovered_button_idx = None  # 新增：目前 hover 的按鈕編號
@@ -98,6 +114,7 @@ def draw_hsv_panel(hsv_values, current_color):
         cv2.putText(panel, f"{l}_min: {hsv_values[0][i]:3d}", (10, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 1)
         cv2.putText(panel, f"{l}_max: {hsv_values[1][i]:3d}", (160, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 1)
     return panel
+
 
 # =============================================================================
 # Step 4: 按鈕面板繪製
@@ -220,7 +237,7 @@ def draw_combined_ui(main_img, hsv_values, current_color, mask=None, label_count
     canvas = draw_chinese_text(canvas, "HSV調整", (hsv_panel_x, hsv_panel_y - 15), font_size=28, color=(0,0,0))
     cv2.rectangle(canvas, (hsv_panel_x, hsv_panel_y+10), (hsv_panel_x+hsv_panel_w, hsv_panel_y+10+hsv_panel_h), (220,220,220), -1)  # 淡灰
     labels = ["H", "S", "V"]
-    maxs = [179, 255, 255]
+    maxs = [360, 100, 100]  # === 修改為標準HSV ===
     bar_x = hsv_panel_x + int(hsv_panel_w * 0.07)
     bar_w = int(hsv_panel_w * 0.8)
     bar_h = int(hsv_panel_h * 0.13)
@@ -319,12 +336,13 @@ def on_all_in_one_mouse(event, x, y, flags, param):
     bar_x = hsv_panel_x + int(hsv_panel_w * 0.07)
     bar_w = int(hsv_panel_w * 0.8)
     bar_h = int(hsv_panel_h * 0.13)
+    maxs = [360, 100, 100]  # === 修改為標準HSV ===
     for i in range(3):
         y_bar = hsv_panel_y + 40 + i*int(hsv_panel_h * 0.28)
-        min_rect = (bar_x+int(hsv_values[0][i]/[179,255,255][i]*bar_w)-5, y_bar-5,
-                    bar_x+int(hsv_values[0][i]/[179,255,255][i]*bar_w)+5, y_bar+bar_h+5)
-        max_rect = (bar_x+int(hsv_values[1][i]/[179,255,255][i]*bar_w)-5, y_bar-5,
-                    bar_x+int(hsv_values[1][i]/[179,255,255][i]*bar_w)+5, y_bar+bar_h+5)
+        min_rect = (bar_x+int(hsv_values[0][i]/maxs[i]*bar_w)-5, y_bar-5,
+                    bar_x+int(hsv_values[0][i]/maxs[i]*bar_w)+5, y_bar+bar_h+5)
+        max_rect = (bar_x+int(hsv_values[1][i]/maxs[i]*bar_w)-5, y_bar-5,
+                    bar_x+int(hsv_values[1][i]/maxs[i]*bar_w)+5, y_bar+bar_h+5)
         if event == cv2.EVENT_LBUTTONDOWN:
             if min_rect[0] <= x <= min_rect[2] and min_rect[1] <= y <= min_rect[3]:
                 dragging = (i, 'min')
@@ -338,7 +356,7 @@ def on_all_in_one_mouse(event, x, y, flags, param):
             idx, which = dragging
             rel = x - bar_x
             rel = max(0, min(bar_w, rel))
-            value = int(rel/max(1,bar_w)*[179,255,255][idx])
+            value = int(rel/max(1,bar_w)*maxs[idx])
             if which == 'min':
                 hsv_values[0][idx] = min(value, hsv_values[1][idx]-1)
             else:
@@ -537,7 +555,8 @@ def main():
         initial_hsv_for_trackbar = vision_config.DEFAULT_COLOR_RANGES.get(current_color_to_adjust, [[0,0,0],[179,255,255]])
     else:
         initial_hsv_for_trackbar = live_color_ranges[current_color_to_adjust]
-    hsv_values = deepcopy(initial_hsv_for_trackbar)
+    # === 轉換為標準HSV給UI ===
+    hsv_values = cv2std_hsv(initial_hsv_for_trackbar)
     cv2.namedWindow("ARMCtrl-ALL-IN-ONE")
     cv2.setMouseCallback("ARMCtrl-ALL-IN-ONE", on_all_in_one_mouse)
     print("[MainLocal] System running. Use UI buttons or press 'q' in the OpenCV window to quit.")
@@ -589,8 +608,8 @@ def main():
                             time.sleep(0.05)
                             continue
                     else:
-                        # 辨識階段
-                        live_color_ranges[current_color_to_adjust] = deepcopy(hsv_values)
+                        # === 轉換為OpenCV HSV ===
+                        live_color_ranges[current_color_to_adjust] = std2cv_hsv(deepcopy(hsv_values))
                         _, labels, _, labels_with_scores = process_frame_and_control_arm(
                             frame, state_manager, None, live_color_ranges,
                             show_debug_windows=False,
@@ -633,21 +652,24 @@ def main():
 # - "select_camera": 呼叫 `select_camera_dialog` 視窗，並在選擇後重新初始化攝影機。
 # 處理完畢後，會將 `current_action_from_buttons` 設回 `None`，等待下一次點擊。
             if current_action_from_buttons == "save":
+                # === 儲存時轉回OpenCV HSV ===
+                for color in live_color_ranges:
+                    live_color_ranges[color] = std2cv_hsv(cv2std_hsv(live_color_ranges[color]))
                 vision_config.save_color_ranges(live_color_ranges)
                 print("[MainLocal] Saved current HSV values for ALL colors to config.")
                 save_feedback_end_time = time.time() + 2 # 訊息顯示 2 秒
                 current_action_from_buttons = None
             elif current_action_from_buttons == "set_red":
                 current_color_to_adjust = "Red"
-                hsv_values = deepcopy(live_color_ranges.get("Red", [[0,0,0],[179,255,255]]))
+                hsv_values = cv2std_hsv(live_color_ranges.get("Red", [[0,0,0],[179,255,255]]))
                 current_action_from_buttons = None
             elif current_action_from_buttons == "set_blue":
                 current_color_to_adjust = "Blue"
-                hsv_values = deepcopy(live_color_ranges.get("Blue", [[100,100,100],[120,255,255]]))
+                hsv_values = cv2std_hsv(live_color_ranges.get("Blue", [[100,100,100],[120,255,255]]))
                 current_action_from_buttons = None
             elif current_action_from_buttons == "set_green":
                 current_color_to_adjust = "Green"
-                hsv_values = deepcopy(live_color_ranges.get("Green", [[40,100,100],[80,255,255]]))  # 預設綠色範圍
+                hsv_values = cv2std_hsv(live_color_ranges.get("Green", [[40,100,100],[80,255,255]]))
                 current_action_from_buttons = None
             elif current_action_from_buttons == "quit":
                 print("[MainLocal] Quit button pressed.")
@@ -671,7 +693,7 @@ def main():
                     arm_controller = initialize_arm_controller(args)
                     state_manager = StateManager()
                     live_color_ranges = deepcopy(vision_config.color_ranges)
-                    hsv_values = deepcopy(initial_hsv_for_trackbar)
+                    hsv_values = cv2std_hsv(initial_hsv_for_trackbar)
                     cv2.namedWindow("ARMCtrl-ALL-IN-ONE")
                     cv2.setMouseCallback("ARMCtrl-ALL-IN-ONE", on_all_in_one_mouse)
                     print("[MainLocal] 請重新設定 HSV 範圍.")
@@ -711,7 +733,7 @@ def main():
 
             if current_mode == MODE_AUTO:
                 # 自動辨識模式：每幀即時辨識，不做計數与統計
-                live_color_ranges[current_color_to_adjust] = deepcopy(hsv_values)
+                live_color_ranges[current_color_to_adjust] = std2cv_hsv(deepcopy(hsv_values))
                 result_frame, labels, masks, labels_with_scores = process_frame_and_control_arm(
                     frame, state_manager, None, live_color_ranges,
                     show_debug_windows=args.show_debug_masks,
@@ -752,8 +774,7 @@ def main():
                             break
                         continue
                 else:
-                    # 辨識階段
-                    live_color_ranges[current_color_to_adjust] = deepcopy(hsv_values)
+                    live_color_ranges[current_color_to_adjust] = std2cv_hsv(deepcopy(hsv_values))
                     result_frame, labels, masks, labels_with_scores = process_frame_and_control_arm(
                         frame, state_manager, None, live_color_ranges,
                         show_debug_windows=args.show_debug_masks,
@@ -800,15 +821,15 @@ def main():
                 current_action_from_buttons = None
             elif current_action_from_buttons == "set_red":
                 current_color_to_adjust = "Red"
-                hsv_values = deepcopy(live_color_ranges.get("Red", [[0,0,0],[179,255,255]]))
+                hsv_values = cv2std_hsv(live_color_ranges.get("Red", [[0,0,0],[179,255,255]]))
                 current_action_from_buttons = None
             elif current_action_from_buttons == "set_blue":
                 current_color_to_adjust = "Blue"
-                hsv_values = deepcopy(live_color_ranges.get("Blue", [[100,100,100],[120,255,255]]))
+                hsv_values = cv2std_hsv(live_color_ranges.get("Blue", [[100,100,100],[120,255,255]]))
                 current_action_from_buttons = None
             elif current_action_from_buttons == "set_green":
                 current_color_to_adjust = "Green"
-                hsv_values = deepcopy(live_color_ranges.get("Green", [[40,100,100],[80,255,255]]))  # 預設綠色範圍
+                hsv_values = cv2std_hsv(live_color_ranges.get("Green", [[40,100,100],[80,255,255]]))
                 current_action_from_buttons = None
             elif current_action_from_buttons == "quit":
                 print("[MainLocal] Quit button pressed.")
@@ -833,7 +854,7 @@ def main():
                     arm_controller = initialize_arm_controller(args)
                     state_manager = StateManager()
                     live_color_ranges = deepcopy(vision_config.color_ranges)
-                    hsv_values = deepcopy(initial_hsv_for_trackbar)
+                    hsv_values = cv2std_hsv(initial_hsv_for_trackbar)
                     cv2.namedWindow("ARMCtrl-ALL-IN-ONE")
                     cv2.setMouseCallback("ARMCtrl-ALL-IN-ONE", on_all_in_one_mouse)
                     print("[MainLocal] 請重新設定 HSV 範圍.")
@@ -865,3 +886,5 @@ def main():
 # 如果這個腳本被其他檔案作為模組匯入，`main()` 則不會自動執行。
 if __name__ == "__main__":
     main()
+
+
