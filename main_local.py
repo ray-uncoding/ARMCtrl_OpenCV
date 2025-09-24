@@ -32,21 +32,6 @@ from utils.app_core import (
 from utils.vision_processing import config as vision_config
 from utils.vision_processing.ui_basic import draw_chinese_text
 
-# === 新增：標準HSV與OpenCV HSV轉換函式 ===
-def std2cv_hsv(std_hsv):
-    # 標準HSV ([[H,S,V],[H,S,V]]) 轉 OpenCV HSV
-    return [
-        [int(std_hsv[0][0]/2), int(std_hsv[0][1]*2.55), int(std_hsv[0][2]*2.55)],
-        [int(std_hsv[1][0]/2), int(std_hsv[1][1]*2.55), int(std_hsv[1][2]*2.55)]
-    ]
-
-def cv2std_hsv(cv_hsv):
-    # OpenCV HSV ([[H,S,V],[H,S,V]]) 轉標準HSV
-    return [
-        [int(round(cv_hsv[0][0]*2)), int(round(cv_hsv[0][1]/2.55)), int(round(cv_hsv[0][2]/2.55))],
-        [int(round(cv_hsv[1][0]*2)), int(round(cv_hsv[1][1]/2.55)), int(round(cv_hsv[1][2]/2.55))]
-    ]
-
 # =============================================================================
 # Step 2: 定義全域變數與 UI 參數
 # =============================================================================
@@ -115,6 +100,20 @@ def draw_hsv_panel(hsv_values, current_color):
         cv2.putText(panel, f"{l}_max: {hsv_values[1][i]:3d}", (160, y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 1)
     return panel
 
+# === 標準HSV與OpenCV HSV轉換函式 ===
+def std2cv_hsv(std_hsv):
+    # 標準HSV ([[H,S,V],[H,S,V]]) 轉 OpenCV HSV
+    return [
+        [int(std_hsv[0][0]/2), int(std_hsv[0][1]*2.55), int(std_hsv[0][2]*2.55)],
+        [int(std_hsv[1][0]/2), int(std_hsv[1][1]*2.55), int(std_hsv[1][2]*2.55)]
+    ]
+
+def cv2std_hsv(cv_hsv):
+    # OpenCV HSV ([[H,S,V],[H,S,V]]) 轉標準HSV
+    return [
+        [int(round(cv_hsv[0][0]*2)), int(round(cv_hsv[0][1]/2.55)), int(round(cv_hsv[0][2]/2.55))],
+        [int(round(cv_hsv[1][0]*2)), int(round(cv_hsv[1][1]/2.55)), int(round(cv_hsv[1][2]/2.55))]
+    ]
 
 # =============================================================================
 # Step 4: 按鈕面板繪製
